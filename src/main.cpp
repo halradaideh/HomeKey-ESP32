@@ -965,6 +965,44 @@ void mqtt_publish(std::string topic, std::string payload, uint8_t qos, bool reta
   } else LOG(W, "MQTT Client not initialized, cannot publish message");
 }
 
+void myLogic() {
+
+  // call custom logic to unlock the relays and relock them
+  Serial.println("Switch Relay On");
+  digitalWrite(2, HIGH);
+  digitalWrite(4, HIGH);
+  delay(500);
+
+
+  Serial.println("H/L");
+  digitalWrite(27, HIGH);
+  digitalWrite(26, LOW);
+  analogWrite(14, 150);
+  delay(1000);
+
+  analogWrite(14, 0);
+  delay(5000);
+
+  Serial.println("L/H");
+  digitalWrite(27, LOW);
+  digitalWrite(26, HIGH);
+  analogWrite(14, 150);
+  delay(1000);
+
+  // Normally Open configuration, send HIGH signal stop current flow
+  // (if you're usong Normally Closed configuration send LOW signal)
+  Serial.println("Switch Relay OFF");
+  digitalWrite(2, LOW);
+  digitalWrite(4, LOW);
+  delay(500);
+
+
+  analogWrite(14, 0);
+
+  digitalWrite(25, HIGH);
+
+}
+
 void nfc_thread_entry(void* arg) {
   nfc.begin();
 
@@ -1022,6 +1060,7 @@ void nfc_thread_entry(void* arg) {
           payload["issuerId"] = json(byte_string_arg, std::get<0>(authResult), semantic_tag::base16);
           payload["endpointId"] = json(byte_string_arg, std::get<1>(authResult), semantic_tag::base16);
           payload["homekey"] = true;
+          myLogic();
           std::string payloadStr = payload.as<std::string>();
           mqtt_publish(espConfig::mqttData.hkTopic, payloadStr, 0, false);
           if (espConfig::miscConfig.lockAlwaysUnlock) {
@@ -1147,6 +1186,25 @@ void gpio_task(void* arg) {
 
 void setup() {
   Serial.begin(115200);
+
+  // Define the pins connected to the L293D IC
+  #define MOTOR_A_EN 14   // Enable pin for Motor A
+  #define MOTOR_A_IN1 27  // Input 1 for Motor A
+  #define MOTOR_A_IN2 26   // Input 2 for Motor A
+
+  // Initialize motor control pins as outputs
+  pinMode(MOTOR_A_EN, OUTPUT);
+  pinMode(MOTOR_A_IN1, OUTPUT);
+  pinMode(MOTOR_A_IN2, OUTPUT);
+
+  // Set initial motor speed to zero
+  analogWrite(MOTOR_A_EN, 0);
+
+  pinMode(2, OUTPUT);
+  pinMode(4, OUTPUT);
+  digitalWrite(2, LOW);
+  digitalWrite(4, LOW);
+
   const esp_app_desc_t* app_desc = esp_ota_get_app_description();
   std::string app_version = app_desc->version;
   gpio_led_handle = xQueueCreate(2, sizeof(bool));
